@@ -60,22 +60,35 @@ def save_terrain(target_tensor, style_tensor, filename):
     plt.imsave(filename, matched, cmap='gray')
     print(f"Saved: {filename}")
 
+
 def evaluate_terrain(generated_tensor, real_style_tensor):
-    print("\n--- Running Terrain Evaluation Metrics ---")
+    print("Terrain Evaluation Metrics")
     mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(generated_tensor.device)
     std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(generated_tensor.device)
 
     gen_img = (generated_tensor.detach().squeeze(0) * std + mean).clamp(0, 1).mean(dim=0).cpu().numpy()
     real_img = (real_style_tensor.detach().squeeze(0) * std + mean).clamp(0, 1).mean(dim=0).cpu().numpy()
 
+    #SSIM (Structural Similarity Index)
     ssim_score = ssim(real_img, gen_img, data_range=1.0)
     print(f"1. SSIM (Structural Match): {ssim_score:.4f}")
     
+    #RMS Roughness (Standard Deviation)
     gen_roughness = np.std(gen_img)
     real_roughness = np.std(real_img)
     print(f"2. Roughness (StdDev): Gen {gen_roughness:.4f} vs Real {real_roughness:.4f}")
+    
+    #Slope Distribution Difference (Wasserstein Distance)
+    gx_gen, gy_gen = np.gradient(gen_img)
+    gx_real, gy_real = np.gradient(real_img)
+        
+    slope_gen = np.sqrt(gx_gen**2 + gy_gen**2).flatten()
+    slope_real = np.sqrt(gx_real**2 + gy_real**2).flatten()
+        
+    w_distance = wasserstein_distance(slope_real, slope_gen)
+    print(f"3. Slope Distribution Difference (Wasserstein): {w_distance:.4f}")
 
-def main()):
+def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     vgg = models.vgg19(weights='VGG19_Weights.DEFAULT').features
